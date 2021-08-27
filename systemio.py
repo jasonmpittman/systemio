@@ -3,10 +3,18 @@
 """systemio.py: Systemio reads the specified PDF and returns the keywords from the metadata along with a frequency of appearance in the PDF"""
 
 import sys
+import re
 
 import argparse
 import pdfreader
 from pdfreader import PDFDocument, SimplePDFViewer
+
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.pdfpage import PDFPage
+from pdfminer.converter import XMLConverter, HTMLConverter, TextConverter
+from pdfminer.layout import LAParams
+import io
+
 
 __author__ = "Jason M. Pittman"
 __copyright__ = "Copyright 2021, Jason M. Pittman"
@@ -33,12 +41,39 @@ def get_page_count(pdf):
     return len(pages)
 
 def list_metadata_keywords(pdf):
-    return pdf.metadata['Keywords'].split(';')
+    keywords = re.split(r'[ ,;]', pdf.metadata['Keywords'].lower())
+
+    while ('' in keywords):
+        keywords.remove('') 
+    
+    return keywords
 
 def list_paper_keywords():
     pass
 
-def analyze_paper(file, page_count, keywords):
+def get_pdf_txt(file, keywords): # this is accurate but not perfect. we can be around 10 off
+    keyword_frequency = {}
+    
+    fp = open(file, 'rb')
+    rsrcmgr = PDFResourceManager()
+    
+    retstr = io.StringIO()
+    codec = 'utf-8'
+    laparams = LAParams()
+    device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+    interpreter = PDFPageInterpreter(rsrcmgr, device)
+    
+
+    for page in PDFPage.get_pages(fp):
+        interpreter.process_page(page)
+        data =  retstr.getvalue()
+
+    for keyword in keywords:
+        keyword_frequency[keyword] = count_keyword(keyword, data)
+
+    print(keyword_frequency)
+
+def analyze_paper(file, page_count, keywords): # this function does not produce accurate results
     fd = open(file, "rb")
     pdf = SimplePDFViewer(fd)
 
@@ -48,8 +83,9 @@ def analyze_paper(file, page_count, keywords):
     for i in range(1, page_count):
         pdf.navigate(i)
         pdf.render()
-
-        pdf_pages[i] = pdf.canvas.strings
+        
+        temp = pdf.canvas.strings
+        pdf_pages[i] = pdf.canvas.strings #[x.lower() for x in temp]
 
     for keyword in keywords:
         keyword_frequency[keyword] = count_keyword(keyword, pdf_pages)    
@@ -58,9 +94,12 @@ def analyze_paper(file, page_count, keywords):
 
 def count_keyword(keyword, pages):
 
-    for page_number, page_content in pages.items():
-        print("Searching for {} on page {}...".format(keyword, page_number))
-        count = page_content.count(keyword) # this isn't finding the keywords...?
+    count = pages.count(keyword)
+
+    # the loop below is for the analyze_paper function
+    #for page_number, page_content in pages.items():
+    #    print("Searching for {} on page {}...".format(keyword, page_number))
+    #    count = page_content.count(keyword)
 
     return count
 
@@ -74,12 +113,13 @@ def main():
         pdf = load_pdf(args.file[0])
         
         keywords = list_metadata_keywords(pdf)
-        print(keywords) #for sun2019 this has an extra empty element at the end of the list
+        print(keywords)
 
         page_count = get_page_count(pdf)
         print(page_count)
         
-        analyze_paper(args.file[0], page_count, keywords)
+        get_pdf_txt(args.file[0], keywords)
+        #analyze_paper(args.file[0], page_count, keywords)
     else:
         print(parser.print_help())
 
