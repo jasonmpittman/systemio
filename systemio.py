@@ -4,6 +4,8 @@
 
 import sys
 import re
+import json
+import datetime
 
 import argparse
 import pdfreader
@@ -71,7 +73,8 @@ def get_pdf_txt(file, keywords): # this is accurate but not perfect. we can be a
     for keyword in keywords:
         keyword_frequency[keyword] = count_keyword(keyword, data)
 
-    print(keyword_frequency)
+    #print(keyword_frequency)
+    return keyword_frequency
 
 def analyze_paper(file, page_count, keywords): # this function does not produce accurate results
     fd = open(file, "rb")
@@ -103,6 +106,13 @@ def count_keyword(keyword, pages):
 
     return count
 
+def write_output(filename, keyword_frequency):
+    output_file = 'data/output.csv'
+
+    #output should be: document name, keyword1, count1, keyword2, count2, ...
+    with open(output_file, mode='a') as f:
+        f.write('{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()) + ',' + filename + ',' + json.dumps(keyword_frequency) + '\n')
+
 def main():
     parser = argparse.ArgumentParser(description='Analyze a PDF for keyword structural bibliometrics')
     parser.add_argument('file', help='the file or file path to the PDF', nargs=1, action="store") 
@@ -118,7 +128,10 @@ def main():
         page_count = get_page_count(pdf)
         print(page_count)
         
-        get_pdf_txt(args.file[0], keywords)
+        keyword_frequency = get_pdf_txt(args.file[0], keywords)
+        print(keyword_frequency)
+
+        write_output(args.file[0], keyword_frequency)
         #analyze_paper(args.file[0], page_count, keywords)
     else:
         print(parser.print_help())
