@@ -3,6 +3,7 @@
 """systemio.py: Systemio reads the specified PDF and returns the keywords from the metadata along with a frequency of appearance in the PDF"""
 
 import sys
+import os
 import re
 import json
 import datetime
@@ -36,6 +37,20 @@ def load_pdf(file):
     pdf = PDFDocument(fd)
 
     return pdf
+
+def load_pdfs(dir):
+    pdfs = []
+    files = []
+
+    for d in os.listdir(dir):
+        files.append(dir + d)
+
+    for file in files:
+        fd = open(file, "rb")
+        pdf = PDFDocument(fd)
+        pdfs.append(pdf)
+
+    return pdfs, files
 
 def get_page_count(pdf):
     pages = [p for p in pdf.pages()]
@@ -115,23 +130,55 @@ def write_output(filename, keyword_frequency):
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze a PDF for keyword structural bibliometrics')
-    parser.add_argument('file', help='the file or file path to the PDF', nargs=1, action="store") 
+    parser.add_argument('file', help='the PDF file or file path to the directory of PDFs', nargs=1, action="store") 
     
     args = parser.parse_args()
+    i = 0
 
     if args.file:
-        pdf = load_pdf(args.file[0])
-        
-        keywords = list_metadata_keywords(pdf)
-        print(keywords)
+        #does pdf indicate a file or does pdf indicate a directory
+        #if file, call everything below as is
+        #if directory, we need to get a list of files and then loop over the list call below
+        if '.pdf' in args.file[0]:
+            print('The file argument is in fact a file')
+            
+            pdf = load_pdf(args.file[0])
+            keywords = list_metadata_keywords(pdf)
+            keyword_frequency = get_pdf_txt(args.file[0], keywords)
 
-        page_count = get_page_count(pdf)
-        print(page_count)
-        
-        keyword_frequency = get_pdf_txt(args.file[0], keywords)
-        print(keyword_frequency)
+            print(keywords)
+            print(keyword_frequency)
+            write_output(args.file[0], keyword_frequency)
+        else:
+            print('We going to assume this means the file argument is a directory of PDFs')
+            pdfs, files = load_pdfs(args.file[0])
+            
+            for pdf in pdfs:
+                keywords = list_metadata_keywords(pdf)
+                
+                keyword_frequency = get_pdf_txt(files[i], keywords) #(args.file[0], keywords)
+                
+                
+                print(keywords)
+                print(keyword_frequency)
+                
+                write_output(files[i], keyword_frequency)
+                i = i + 1
+#        pdf = load_pdf(args.file[0])
 
-        write_output(args.file[0], keyword_frequency)
+
+#        keywords = list_metadata_keywords(pdf)
+#        print(keywords)
+
+        # if keywords is not empty, do the rest else just bail
+
+#        page_count = get_page_count(pdf)
+#        print(page_count)
+        
+#        keyword_frequency = get_pdf_txt(args.file[0], keywords)
+#        print(keyword_frequency)
+
+#        write_output(args.file[0], keyword_frequency)
         #analyze_paper(args.file[0], page_count, keywords)
     else:
         print(parser.print_help())
