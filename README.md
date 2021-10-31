@@ -1,2 +1,4 @@
 # systemio
-A Python tool to analyze structural bibliometrics of research papers
+A Python tool to analyze research article keyword metadata and associated structural bibliometrics.
+
+#
